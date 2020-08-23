@@ -1,0 +1,27 @@
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: app-ns
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alpine-deploy
+  namespace: app-ns
+  labels:
+    app: alpine
+spec:
+  selector:
+    matchLabels:
+      app: alpine
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: alpine
+    spec:
+      containers:
+        - name: my-alpine-container
+          image: alpine:3.9.1
+          ports:
+            - containerPort: 80
