@@ -8,4 +8,4 @@ The Function also uses sends a text message to notify SRE or Operations team on 
 
 ## Watch the video
 
-To learn more about this application watch the video here: <>
+To learn more about this application watch the video here: https://www.youtube.com/watch?v=ULtC9cSrY9s
