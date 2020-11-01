@@ -8,6 +8,6 @@ The Function also uses sends a text message to notify SRE or Operations team on 
 
 ![High level design diagram](architecture.jpg)
 
-## Watch the video
+## Watch the video (Azure Conference India)
 
-To learn more about this application watch the video here: https://www.youtube.com/watch?v=ULtC9cSrY9s
+To learn more about this application watch the video here:
