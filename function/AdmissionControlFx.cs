@@ -5,13 +5,13 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using az_fx_k8s_admission_control.Contracts;
+using Azure.Communication;
+using Azure.Communication.Sms;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Extensions.Http;
 using Newtonsoft.Json;
-using Twilio.Rest.Api.V2010.Account;
-using Twilio.Types;
 
 namespace RR.AKSAdmissionController
 {
@@ -29,9 +29,7 @@ namespace RR.AKSAdmissionController
         [FunctionName("AdmissionControlFx")]
         public static async Task<IActionResult> Run(
             [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = null)]
-            HttpRequest req,
-            [TwilioSms(AccountSidSetting = "TwilioAccountSid", AuthTokenSetting = "TwilioAuthToken", From = "+19166193571")]
-            ICollector<CreateMessageOptions> twilioSms)
+            HttpRequest req)
         {
             string sms;
             var requestBodyString = await new StreamReader(req.Body).ReadToEndAsync();
@@ -47,26 +45,29 @@ namespace RR.AKSAdmissionController
             {
                 sms = string.Format(FailedAppMessage, app.ToUpperInvariant(), DateTime.UtcNow.ToString("r"));
                 SendSms();
-                return new OkObjectResult(new ResponseModel(requestBody.request.uid, false, "replica count should be greater than 2"));
+                return new OkObjectResult(new ResponseModel(requestBody.request.uid, false,
+                    "replica count should be greater than 2"));
             }
 
             // Extract container image.
             IEnumerable<dynamic> candidateContainers =
                 requestBody?.request?.@object?.spec?.template?.spec?.containers;
-            var candidateImages = string.Join(',', candidateContainers.Select(cc => (string)cc.image));
+            var candidateImages = string.Join(',', candidateContainers.Select(cc => (string) cc.image));
 
             // For create, dispatch the message immediately.
             if (operation.Equals("create", StringComparison.OrdinalIgnoreCase))
             {
-                sms = string.Format(NewAppMessage, app.ToUpperInvariant(), DateTime.UtcNow.ToString("r"), candidateImages);
+                sms = string.Format(NewAppMessage, app.ToUpperInvariant(), DateTime.UtcNow.ToString("r"),
+                    candidateImages);
             }
             else
             {
                 // Extract image details from the old deployment.
                 IEnumerable<dynamic> existingContainers =
                     requestBody?.request?.oldObject?.spec?.template?.spec?.containers;
-                var existingImages = string.Join(',', existingContainers.Select(cc => (string)cc.image));
-                sms = string.Format(UpgradeAppMessage, app.ToUpperInvariant(), DateTime.UtcNow.ToString("r"), candidateImages,
+                var existingImages = string.Join(',', existingContainers.Select(cc => (string) cc.image));
+                sms = string.Format(UpgradeAppMessage, app.ToUpperInvariant(), DateTime.UtcNow.ToString("r"),
+                    candidateImages,
                     existingImages);
             }
 
@@ -77,15 +78,18 @@ namespace RR.AKSAdmissionController
 
             void SendSms()
             {
-                // Send SMS
+                // Send SMS using Azure ACS: https://docs.microsoft.com/en-us/azure/communication-services/quickstarts/telephony-sms/send
                 var teamPhone =
                     Environment.GetEnvironmentVariable("SupportTeamPhone", EnvironmentVariableTarget.Process);
-                var message = new CreateMessageOptions(new PhoneNumber(teamPhone))
-                {
-                    Body = sms
-                };
-
-                twilioSms.Add(message);
+                var connectionString =
+                    Environment.GetEnvironmentVariable("ACS_ConnectionString", EnvironmentVariableTarget.Process);
+                var fromPhoneNumber =
+                    Environment.GetEnvironmentVariable("ACS_FromPhoneNumber", EnvironmentVariableTarget.Process);
+                var smsClient = new SmsClient(connectionString!);
+                var response = smsClient.Send(
+                    new PhoneNumber(fromPhoneNumber!),
+                    new PhoneNumber(teamPhone!),
+                    sms);
             }
         }
     }
